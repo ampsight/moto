@@ -1792,8 +1792,11 @@ class SecurityRule(object):
     def __eq__(self, other):
         if self.ip_protocol != other.ip_protocol:
             return False
-        if self.ip_ranges != other.ip_ranges:
+        if len(self.ip_ranges) != len(other.ip_ranges):
             return False
+        for idx, value in enumerate(self.ip_ranges):
+            if self.ip_ranges[idx]['CidrIp'] != other.ip_ranges[idx]['CidrIp']:
+                return False
         if self.source_groups != other.source_groups:
             return False
         if self.ip_protocol != "-1":
@@ -2057,8 +2060,8 @@ class SecurityGroupBackend(object):
             ip_ranges = [ip_ranges]
         if ip_ranges:
             for cidr in ip_ranges:
-                if not is_valid_cidr(cidr):
-                    raise InvalidCIDRSubnetError(cidr=cidr)
+                if not is_valid_cidr(cidr['CidrIp']):
+                    raise InvalidCIDRSubnetError(cidr=cidr['CidrIp'])
 
         self._verify_group_will_respect_rule_count_limit(
             group,
@@ -2121,6 +2124,21 @@ class SecurityGroupBackend(object):
             return security_rule
         raise InvalidPermissionNotFoundError()
 
+    def update_security_group_rule_descriptions_ingress(
+        self,
+        *args,
+        **kwargs
+    ):
+        ip_ranges = args[5]
+        if ip_ranges and not isinstance(ip_ranges, list):
+            ip_ranges = [ip_ranges]
+        if ip_ranges:
+            for cidr in ip_ranges:
+                if not is_valid_cidr(cidr['CidrIp']):
+                    raise InvalidCIDRSubnetError(cidr=cidr['CidrIp'])
+        self.revoke_security_group_ingress(*args, **kwargs)        
+        self.authorize_security_group_ingress(*args, **kwargs)
+
     def authorize_security_group_egress(
         self,
         group_name_or_id,
@@ -2138,8 +2156,8 @@ class SecurityGroupBackend(object):
             ip_ranges = [ip_ranges]
         if ip_ranges:
             for cidr in ip_ranges:
-                if not is_valid_cidr(cidr):
-                    raise InvalidCIDRSubnetError(cidr=cidr)
+                if not is_valid_cidr(cidr['CidrIp']):
+                    raise InvalidCIDRSubnetError(cidr=cidr['CidrIp'])
 
         self._verify_group_will_respect_rule_count_limit(
             group,
@@ -2202,6 +2220,21 @@ class SecurityGroupBackend(object):
             return security_rule
         raise InvalidPermissionNotFoundError()
 
+    def update_security_group_rule_descriptions_egress(
+        self,
+        *args,
+        **kwargs
+    ):
+        ip_ranges = args[5]
+        if ip_ranges and not isinstance(ip_ranges, list):
+            ip_ranges = [ip_ranges]
+        if ip_ranges:
+            for cidr in ip_ranges:
+                if not is_valid_cidr(cidr['CidrIp']):
+                    raise InvalidCIDRSubnetError(cidr=cidr['CidrIp'])
+        self.revoke_security_group_egress(*args, **kwargs)        
+        self.authorize_security_group_egress(*args, **kwargs)
+      
     def _verify_group_will_respect_rule_count_limit(
         self,
         group,

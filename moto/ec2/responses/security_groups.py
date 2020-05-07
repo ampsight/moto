@@ -19,8 +19,14 @@ def parse_sg_attributes_from_dict(sg_attributes):
 
     ip_ranges = []
     ip_ranges_tree = sg_attributes.get("IpRanges") or {}
+    
     for ip_range_idx in sorted(ip_ranges_tree.keys()):
-        ip_ranges.append(ip_ranges_tree[ip_range_idx]["CidrIp"][0])
+        ip_range = {
+            'CidrIp': ip_ranges_tree[ip_range_idx]["CidrIp"][0]
+        }
+        if 'Description' in ip_ranges_tree[ip_range_idx]:
+            ip_range['Description'] = ip_ranges_tree[ip_range_idx]["Description"][0]
+        ip_ranges.append(ip_range)
 
     source_groups = []
     source_group_ids = []
@@ -160,6 +166,19 @@ class SecurityGroups(BaseResponse):
                 self.ec2_backend.revoke_security_group_ingress(*args)
             return REVOKE_SECURITY_GROUP_INGRESS_RESPONSE
 
+    def update_security_group_rule_descriptions_egress(self):
+        if self.is_not_dryrun("UpdateSecurityGroupRuleDescriptionsEgress"):
+            for args in self._process_rules_from_querystring():
+                success = self.ec2_backend.update_security_group_rule_descriptions_egress(*args)
+                if not success:
+                    return "Could not find a matching egress rule", dict(status=404)
+            return UPDATE_SECURITY_GROUP_RULE_DESCRIPTIONS_RESPONSE_EGRESS
+
+    def update_security_group_rule_descriptions_ingress(self):
+        if self.is_not_dryrun("UpdateSecurityGroupRuleDescriptionsIngress"):
+            for args in self._process_rules_from_querystring():
+                self.ec2_backend.update_security_group_rule_descriptions_ingress(*args)
+            return UPDATE_SECURITY_GROUP_RULE_DESCRIPTIONS_RESPONSE_INGRESS
 
 CREATE_SECURITY_GROUP_RESPONSE = """<CreateSecurityGroupResponse xmlns="http://ec2.amazonaws.com/doc/2013-10-15/">
    <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
@@ -211,7 +230,10 @@ DESCRIBE_SECURITY_GROUPS_RESPONSE = (
                        <ipRanges>
                           {% for ip_range in rule.ip_ranges %}
                               <item>
-                                 <cidrIp>{{ ip_range }}</cidrIp>
+                                 <cidrIp>{{ ip_range.CidrIp }}</cidrIp>
+                                 {% if ip_range.Description %}
+                                 <description>{{ ip_range.Description }}</description>
+                                 {% endif %}
                               </item>
                           {% endfor %}
                        </ipRanges>
@@ -280,6 +302,18 @@ AUTHORIZE_SECURITY_GROUP_EGRESS_RESPONSE = """
    <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
    <return>true</return>
 </AuthorizeSecurityGroupEgressResponse>"""
+
+UPDATE_SECURITY_GROUP_RULE_DESCRIPTIONS_RESPONSE_INGRESS = """
+<UpdateSecurityGroupRuleDescriptionsIngressResponse xmlns="http://ec2.amazonaws.com/doc/2013-10-15/">
+   <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+   <return>true</return>
+</UpdateSecurityGroupRuleDescriptionsIngressResponse>"""
+
+UPDATE_SECURITY_GROUP_RULE_DESCRIPTIONS_RESPONSE_EGRESS = """
+<UpdateSecurityGroupRuleDescriptionsEgressResponse xmlns="http://ec2.amazonaws.com/doc/2013-10-15/">
+   <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+   <return>true</return>
+</UpdateSecurityGroupRuleDescriptionsEgressResponse>"""
 
 REVOKE_SECURITY_GROUP_EGRESS_RESPONSE = """<RevokeSecurityGroupEgressResponse xmlns="http://ec2.amazonaws.com/doc/2013-10-15/">
   <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
